@@ -1,7 +1,9 @@
 # ESP32-S2 USB WiFi Bridge
 
 将 ESP32-S2 的 USB-CDC 口透明桥接到 Wi-Fi 网络，并提供实时调试控制台的嵌入式固件。
-
+![alt text](<屏幕截图 2026-04-28 173549.png>)
+![alt text](<屏幕截图 2026-04-28 174011.png>)
+![alt text](image.png)
 ## 功能特性
 
 - **USB-CDC ↔ 网络透传** — 串口数据直通 TCP Server / TCP Client / UDP，零驱动、即插即用
