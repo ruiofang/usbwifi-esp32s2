@@ -4,6 +4,13 @@
 #include "freertos/task.h"
 #include "passthrough.h"
 
+static volatile bool s_led_override = false;
+
+void led_set_override(bool active)
+{
+    s_led_override = active;
+}
+
 void led_init(void) {
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << LED_GPIO_PIN),
@@ -18,6 +25,10 @@ void led_init(void) {
 
 static void led_task(void *pvParameters) {
     while (1) {
+        if (s_led_override) {
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
         if (passthrough_is_running()) {
             gpio_set_level(LED_GPIO_PIN, 1);
             vTaskDelay(pdMS_TO_TICKS(100));

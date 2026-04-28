@@ -19,10 +19,11 @@ static const char *TAG = "MAIN";
 #define BOOT_GPIO           0
 #define FACTORY_RESET_MS    5000
 
-/* Check if BOOT button (GPIO0, active-low) is held at startup.
- * If held for FACTORY_RESET_MS milliseconds, erase NVS and reboot
- * so the device comes up with factory defaults (AP enabled). */
-static void check_factory_reset_button(void)
+/* Persistent task: monitors BOOT (GPIO0) at runtime.
+ * Hold for 5 s → wait for release → erase NVS → restart.
+ * Waiting for release prevents entering ROM download mode
+ * (which happens when GPIO0 is LOW when the CPU comes out of reset). */
+static void factory_reset_task(void *pvParameters)
 {
     gpio_config_t io_conf = {
         .pin_bit_mask  = (1ULL << BOOT_GPIO),
@@ -33,38 +34,46 @@ static void check_factory_reset_button(void)
     };
     gpio_config(&io_conf);
 
-    /* Not pressed – nothing to do */
-    if (gpio_get_level(BOOT_GPIO) == 1) return;
+    uint32_t hold_cnt = 0;  /* each increment = 50 ms */
 
-    ESP_LOGI(TAG, "BOOT held – factory reset countdown (%d s)", FACTORY_RESET_MS / 1000);
-
-    int elapsed = 0;
-    while (elapsed < FACTORY_RESET_MS) {
-        /* Fast blink: 100 ms on/off */
-        gpio_set_level(LED_GPIO_PIN, (elapsed / 100) % 2);
+    for (;;) {
         vTaskDelay(pdMS_TO_TICKS(50));
-        elapsed += 50;
 
-        if (gpio_get_level(BOOT_GPIO) == 1) {
-            /* Released before timeout – cancel */
-            gpio_set_level(LED_GPIO_PIN, 0);
-            ESP_LOGI(TAG, "BOOT released – factory reset cancelled");
-            return;
+        if (gpio_get_level(BOOT_GPIO) == 0) {
+            hold_cnt++;
+
+            /* After 200 ms of continuous hold, take LED and show countdown blink.
+             * Pattern: 200 ms ON / 200 ms OFF (4 ticks per state). */
+            if (hold_cnt >= 4) {
+                led_set_override(true);
+                gpio_set_level(LED_GPIO_PIN, (hold_cnt / 4) % 2);
+            }
+
+            /* 5 s reached → perform factory reset */
+            if (hold_cnt * 50 >= FACTORY_RESET_MS) {
+                /* Solid LED while waiting for release */
+                gpio_set_level(LED_GPIO_PIN, 1);
+                while (gpio_get_level(BOOT_GPIO) == 0) {
+                    vTaskDelay(pdMS_TO_TICKS(50));
+                }
+
+                /* Triple-blink confirmation */
+                for (int i = 0; i < 6; i++) {
+                    gpio_set_level(LED_GPIO_PIN, i % 2);
+                    vTaskDelay(pdMS_TO_TICKS(80));
+                }
+                gpio_set_level(LED_GPIO_PIN, 0);
+
+                nvs_flash_erase();
+                esp_restart();
+            }
+        } else {
+            if (hold_cnt >= 4) {
+                led_set_override(false);
+            }
+            hold_cnt = 0;
         }
     }
-
-    /* Confirmed long press – perform factory reset */
-    ESP_LOGI(TAG, "Factory reset triggered – erasing NVS");
-
-    /* Rapid triple-blink to confirm */
-    for (int i = 0; i < 6; i++) {
-        gpio_set_level(LED_GPIO_PIN, i % 2);
-        vTaskDelay(pdMS_TO_TICKS(80));
-    }
-    gpio_set_level(LED_GPIO_PIN, 0);
-
-    nvs_flash_erase();
-    esp_restart();
 }
 
 static int null_vprintf(const char *fmt, va_list args) {
@@ -94,14 +103,12 @@ void app_main(void) {
     // Init LED early so we can use it for factory-reset feedback
     led_init();
 
-    // Long-press BOOT (GPIO0) for 5 s => factory reset
-    check_factory_reset_button();
-
     // Load configuration
     load_config();
 
-    // Start LED blink task
+    // Start LED blink task + runtime BOOT-key factory-reset monitor
     led_start_task();
+    xTaskCreate(factory_reset_task, "boot_btn", 2048, NULL, 5, NULL);
     
     // Initialize Passthrough (CDC settings)
     passthrough_init();

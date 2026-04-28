@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       ".",
-    "project_version":    "3ee7fe9-dirty",
+    "project_version":    "f6ddc14-dirty",
     "project_path":       "E:/usbwifi-esp32s2",
     "idf_path":           "C:/Espressif/frameworks/esp-idf-v5.5.4",
     "build_dir":          "E:/usbwifi-esp32s2/build",
