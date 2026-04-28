@@ -1013,6 +1013,16 @@
         "children": [],
         "depends_on": null,
         "help": null,
+        "id": "SOC_RTC_CNTL_NEEDS_ATOMIC_ACCESS",
+        "name": "SOC_RTC_CNTL_NEEDS_ATOMIC_ACCESS",
+        "range": null,
+        "title": null,
+        "type": "bool"
+    },
+    {
+        "children": [],
+        "depends_on": null,
+        "help": null,
         "id": "SOC_DEDIC_GPIO_OUT_CHANNELS_NUM",
         "name": "SOC_DEDIC_GPIO_OUT_CHANNELS_NUM",
         "range": null,
@@ -1875,46 +1885,6 @@
         "help": null,
         "id": "SOC_MEMSPI_IS_INDEPENDENT",
         "name": "SOC_MEMSPI_IS_INDEPENDENT",
-        "range": null,
-        "title": null,
-        "type": "bool"
-    },
-    {
-        "children": [],
-        "depends_on": null,
-        "help": null,
-        "id": "SOC_MEMSPI_SRC_FREQ_80M_SUPPORTED",
-        "name": "SOC_MEMSPI_SRC_FREQ_80M_SUPPORTED",
-        "range": null,
-        "title": null,
-        "type": "bool"
-    },
-    {
-        "children": [],
-        "depends_on": null,
-        "help": null,
-        "id": "SOC_MEMSPI_SRC_FREQ_40M_SUPPORTED",
-        "name": "SOC_MEMSPI_SRC_FREQ_40M_SUPPORTED",
-        "range": null,
-        "title": null,
-        "type": "bool"
-    },
-    {
-        "children": [],
-        "depends_on": null,
-        "help": null,
-        "id": "SOC_MEMSPI_SRC_FREQ_26M_SUPPORTED",
-        "name": "SOC_MEMSPI_SRC_FREQ_26M_SUPPORTED",
-        "range": null,
-        "title": null,
-        "type": "bool"
-    },
-    {
-        "children": [],
-        "depends_on": null,
-        "help": null,
-        "id": "SOC_MEMSPI_SRC_FREQ_20M_SUPPORTED",
-        "name": "SOC_MEMSPI_SRC_FREQ_20M_SUPPORTED",
         "range": null,
         "title": null,
         "type": "bool"
@@ -6485,6 +6455,16 @@
             {
                 "children": [
                     {
+                        "children": [],
+                        "depends_on": null,
+                        "help": null,
+                        "id": "ESP_HW_SUPPORT_FUNC_IN_IRAM",
+                        "name": "ESP_HW_SUPPORT_FUNC_IN_IRAM",
+                        "range": null,
+                        "title": null,
+                        "type": "bool"
+                    },
+                    {
                         "children": [
                             {
                                 "children": [
@@ -6945,6 +6925,26 @@
                                 "range": null,
                                 "title": "Number of attempts to repeat 32k XTAL calibration",
                                 "type": "int"
+                            },
+                            {
+                                "children": [],
+                                "depends_on": null,
+                                "help": "Place RTC clock module (all rtc clock functions and const data) into IRAM.",
+                                "id": "RTC_CLK_FUNC_IN_IRAM",
+                                "name": "RTC_CLK_FUNC_IN_IRAM",
+                                "range": null,
+                                "title": "Place RTC clock module functions into IRAM",
+                                "type": "bool"
+                            },
+                            {
+                                "children": [],
+                                "depends_on": null,
+                                "help": "Place RTC time module (all rtc clock functions) into IRAM.",
+                                "id": "RTC_TIME_FUNC_IN_IRAM",
+                                "name": "RTC_TIME_FUNC_IN_IRAM",
+                                "range": null,
+                                "title": "Place RTC time module functions into IRAM",
+                                "type": "bool"
                             }
                         ],
                         "depends_on": null,
@@ -7921,7 +7921,10 @@
                         "help": "After the panic handler executes, you can specify a number of seconds to\nwait before the device reboots.",
                         "id": "ESP_SYSTEM_PANIC_REBOOT_DELAY_SECONDS",
                         "name": "ESP_SYSTEM_PANIC_REBOOT_DELAY_SECONDS",
-                        "range": null,
+                        "range": [
+                            0,
+                            99
+                        ],
                         "title": "Panic reboot delay (Seconds)",
                         "type": "int"
                     },
@@ -8452,10 +8455,7 @@
                                         "help": "Timeout period configuration for the Task Watchdog Timer in seconds.\nThis is also configurable at run time (see Task Watchdog Timer API Reference)",
                                         "id": "ESP_TASK_WDT_TIMEOUT_S",
                                         "name": "ESP_TASK_WDT_TIMEOUT_S",
-                                        "range": [
-                                            1,
-                                            60
-                                        ],
+                                        "range": null,
                                         "title": "Task Watchdog timeout period (seconds)",
                                         "type": "int"
                                     },
@@ -10159,12 +10159,12 @@
                             },
                             {
                                 "children": [],
-                                "depends_on": "!IDF_TOOLCHAIN_CLANG && IDF_EXPERIMENTAL_FEATURES && <choice LIBC>",
+                                "depends_on": "!IDF_TOOLCHAIN_CLANG && <choice LIBC>",
                                 "help": null,
                                 "id": "LIBC_PICOLIBC",
                                 "name": "LIBC_PICOLIBC",
                                 "range": null,
-                                "title": "Picolibc (EXPERIMENTAL)",
+                                "title": "Picolibc",
                                 "type": "bool"
                             }
                         ],
@@ -10174,6 +10174,16 @@
                         "name": "LIBC",
                         "title": "LibC to build application with",
                         "type": "choice"
+                    },
+                    {
+                        "children": [],
+                        "depends_on": "LIBC_PICOLIBC",
+                        "help": "This option provides limited compatibility with libraries built using Newlib headers by:\n\nEnabling hidden system-header inclusions that exist in Newlib.\nAdding tls_stdio, tls_stdout, and tls_stderr variables to Thread Local Storage\nto allow prebuilt libraries to access them via getreent().\nProviding an implementation of getreent() that returns the value of the thread-pointer register.\n\nLimitations:\n\n1. If your application or an external prebuilt library accesses Newlib \"struct _reent\" implicitly,\nthis may cause memory corruption on the task stack. You have two options:\n\n- Use libc API calls instead of directly accessing \"struct _reent\" fields.\n- Switch ESP-IDF to use the Newlib implementation by setting CONFIG_LIBC_NEWLIB=y in sdkconfig.\n\n2. If your application uses a prebuilt library built with Newlib headers, you may encounter\nunexpected behavior when overriding stdin, stdout, and stderr. External prebuilt libraries\ncan only read these streams, so overriding them will not affect as it was for Newlib.\nYou have two options to fix this:\n\n- Rebuild the library with Picolibc headers that follow POSIX-standardized stdin, stdout,\n  and stderr declarations.\n- Switch ESP-IDF to use the Newlib implementation by setting CONFIG_LIBC_NEWLIB=y in sdkconfig.",
+                        "id": "LIBC_PICOLIBC_NEWLIB_COMPATIBILITY",
+                        "name": "LIBC_PICOLIBC_NEWLIB_COMPATIBILITY",
+                        "range": null,
+                        "title": "Provides limited interoperability with libraries built using Newlib headers",
+                        "type": "bool"
                     },
                     {
                         "children": [],
@@ -10187,7 +10197,7 @@
                     },
                     {
                         "children": [],
-                        "depends_on": "LIBC_NEWLIB",
+                        "depends_on": null,
                         "help": "Enable this option to include be able to call the lock API from\ncode that runs while cache is disabled, e.g. IRAM interrupts.",
                         "id": "LIBC_LOCKS_PLACE_IN_IRAM",
                         "name": "LIBC_LOCKS_PLACE_IN_IRAM",
@@ -10338,12 +10348,25 @@
                     {
                         "children": [],
                         "depends_on": "ESP_ROM_HAS_SUBOPTIMAL_NEWLIB_ON_MISALIGNED_MEMORY",
-                        "help": "Enables performance-optimized implementations of memory and string functions\nwhen handling misaligned memory.\n\nThis increases the image size by ~1000 bytes.\n\nOptimized functions include:\n    - memcpy\n    - memset\n    - memmove\n    - str[n]cpy\n    - str[n]cmp",
+                        "help": "Enables performance-optimized implementations of memory and string functions\nwhen handling misaligned memory.\n\nRequire approximately 800\u20131000 bytes of IRAM.\n\nOptimized functions include:\n    - memcpy\n    - memset\n    - memmove\n    - str[n]cpy\n    - str[n]cmp",
                         "id": "LIBC_OPTIMIZED_MISALIGNED_ACCESS",
                         "name": "LIBC_OPTIMIZED_MISALIGNED_ACCESS",
                         "range": null,
                         "title": "Use performance-optimized memXXX/strXXX functions on misaligned memory access",
                         "type": "bool"
+                    },
+                    {
+                        "children": [],
+                        "depends_on": null,
+                        "help": "Size of the buffer used to format assert failure messages.\n\nWhen assertions fail, the system formats a message containing the function name,\nfile name, line number, and the failed expression. This option controls the\nmaximum length of this message.\n\nIf you encounter truncated assert messages (especially with C++ templates or\nlong function names), increase this value. The default value of 200 bytes\nshould be sufficient for most cases, but complex template expressions may\nrequire larger buffers.",
+                        "id": "LIBC_ASSERT_BUFFER_SIZE",
+                        "name": "LIBC_ASSERT_BUFFER_SIZE",
+                        "range": [
+                            100,
+                            2048
+                        ],
+                        "title": "Assert message buffer size",
+                        "type": "int"
                     }
                 ],
                 "depends_on": null,
@@ -10512,7 +10535,7 @@
                                         "type": "bool"
                                     }
                                 ],
-                                "depends_on": "(IDF_TARGET_ESP32S3 || IDF_TARGET_ESP32P4) && !ESPTOOLPY_OCT_FLASH && !APP_BUILD_TYPE_PURE_RAM_APP",
+                                "depends_on": "SOC_SPI_MEM_FLASH_SUPPORT_HPM && !ESPTOOLPY_OCT_FLASH && !APP_BUILD_TYPE_PURE_RAM_APP",
                                 "help": "Whether the High Performance Mode of Flash is enabled. As an optional feature, user needs to manually\nenable this option as a confirmation. To be back-compatible with earlier IDF version, this option is\nautomatically enabled with warning when Flash running > 80Mhz.",
                                 "id": "component-config-main-flash-configuration-optional-and-experimental-features-read-docs-first--high-performance-mode-read-docs-first-80mhz-",
                                 "name": "SPI_FLASH_HPM",
@@ -11054,7 +11077,7 @@
     {
         "children": [],
         "depends_on": null,
-        "help": "By enabling this option, ESP-IDF experimental feature options will be visible.\n\nNote you should still enable a certain experimental feature option to use it, and you\nshould read the corresponding risk warning and known issue list carefully.\n\nCurrent experimental feature list:\n\n- CONFIG_ESPTOOLPY_FLASHFREQ_120M && CONFIG_ESPTOOLPY_FLASH_SAMPLE_MODE_DTR\n- CONFIG_SPIRAM_SPEED_120M && CONFIG_SPIRAM_MODE_OCT\n- CONFIG_BOOTLOADER_CACHE_32BIT_ADDR_QUAD_FLASH\n- CONFIG_ESP_WIFI_EAP_TLS1_3\n- CONFIG_ESP_WIFI_ENABLE_ROAMING_APP\n- CONFIG_USB_HOST_EXT_PORT_RESET_ATTEMPTS\n- CONFIG_LIBC_PICOLIBC",
+        "help": "By enabling this option, ESP-IDF experimental feature options will be visible.\n\nNote you should still enable a certain experimental feature option to use it, and you\nshould read the corresponding risk warning and known issue list carefully.\n\nCurrent experimental feature list:\n\n- CONFIG_ESPTOOLPY_FLASHFREQ_120M && CONFIG_ESPTOOLPY_FLASH_SAMPLE_MODE_DTR\n- CONFIG_SPIRAM_SPEED_120M && CONFIG_SPIRAM_MODE_OCT\n- CONFIG_BOOTLOADER_CACHE_32BIT_ADDR_QUAD_FLASH\n- CONFIG_ESP_WIFI_EAP_TLS1_3\n- CONFIG_ESP_WIFI_ENABLE_ROAMING_APP\n- CONFIG_USB_HOST_EXT_PORT_RESET_ATTEMPTS",
         "id": "IDF_EXPERIMENTAL_FEATURES",
         "name": "IDF_EXPERIMENTAL_FEATURES",
         "range": null,

@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'>
+<title>ESP32-S2 USB WiFi Config</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%%; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); min-height: 100vh; padding: 16px; }
+.container { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); max-width: 600px; margin: 0 auto; }
+h1 { color: #333; font-size: 20px; margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid #eee; text-align: center; }
+
+/* Tabs */
+.tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #f0f0f0; }
+.tab-btn { flex: 1; padding: 10px; border: none; background: none; font-size: 14px; font-weight: 600; color: #888; cursor: pointer; transition: all 0.2s; }
+.tab-btn.active { color: #667eea; border-bottom: 2px solid #667eea; margin-bottom: -2px; }
+.tab-content { display: none; animation: fadeIn 0.3s; }
+.tab-content.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.section { margin-bottom: 16px; }
+.section h2 { color: #555; font-size: 13px; font-weight: 600; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.form-group { margin-bottom: 10px; }
+.form-group label { display: block; color: #666; font-size: 12px; margin-bottom: 4px; }
+.form-group input, .form-group select { width: 100%%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; transition: border-color 0.2s; }
+.form-group input:focus, .form-group select:focus { outline: none; border-color: #667eea; }
+.form-group input[type='checkbox'], .form-group input[type='radio'] { width: auto; margin-right: 6px; }
+.btn { width: 100%%; padding: 12px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 8px; -webkit-tap-highlight-color: transparent; }
+.btn-primary { background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); color: white; }
+.btn-primary:active { transform: translateY(1px); }
+.btn-secondary { background: #f5f5f5; color: #666; }
+.btn-secondary:active { background: #e5e5e5; }
+.status { padding: 12px; border-radius: 8px; margin-bottom: 14px; text-align: center; font-size: 13px; font-weight: 600; }
+.status-running { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+.status-stopped { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+.row { display: flex; gap: 10px; align-items: flex-end; }
+.row .form-group { flex: 1; margin-bottom: 0; }
+.radio-group { display: flex; gap: 15px; background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #eee; }
+.radio-group label { font-weight: normal; cursor: pointer; display: flex; align-items: center; margin-bottom: 0; }
+.wifi-list { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; margin-top: 10px; }
+.wifi-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
+.wifi-item:active { background: #f0f0f0; }
+.wifi-item:last-child { border-bottom: none; }
+.wifi-ssid { font-weight: 600; color: #333; word-break: break-all; }
+.wifi-info { font-size: 11px; color: #999; margin-top: 2px; }
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.info-card { background: #f7f8fb; border: 1px solid #e7e9f0; border-radius: 8px; padding: 10px 12px; }
+.info-card-label { color: #7b8190; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+.info-card-value { color: #2f3440; font-size: 13px; font-weight: 600; word-break: break-all; }
+
+/* Console */
+.console-container { display: flex; flex-direction: column; gap: 10px; height: 450px; }
+.console-header { display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 8px; border-radius: 8px; border: 1px solid #eee; font-size: 12px; }
+.console { flex: 1; background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 8px; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; border: 1px solid #333; }
+.console-input-area { background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
+.console-input-group { display: flex; gap: 6px; align-items: center; }
+.console-input { flex: 1; border: 1px solid #ddd; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 13px; }
+.console-input:focus { outline: none; border-color: #667eea; }
+.log-serial { color: #4fc1ff; }
+.log-net { color: #b5cea8; }
+.log-sys { color: #ce9178; }
+.filter-btn { padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 11px; }
+.filter-btn.active { background: #667eea; color: white; border-color: #667eea; }
+
+footer { text-align: center; color: rgba(255,255,255,0.8); font-size: 11px; margin-top: 12px; }
+@media (max-width: 400px) {
+  .container { padding: 16px; }
+  h1 { font-size: 18px; margin-bottom: 12px; }
+  .section { margin-bottom: 12px; }
+  .row { flex-direction: column; gap: 10px; align-items: stretch; }
+  .info-grid { grid-template-columns: 1fr; }
+  body { padding: 12px; }
+}
+</style>
+</head>
+<body>
+<div class='container'>
+    <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #eee;'>
+        <h1 style='margin: 0; border: none;'>ESP32-S2 USB WiFi Bridge</h1>
+        <button onclick='toggleLang()' class='filter-btn' id='lang-btn'>English</button>
+    </div>
+    
+    <div class='tabs'>
+        <button class='tab-btn active' onclick="openTab(event, 'status-tab')" data-cn='运行状态' data-en='Status'>运行状态</button>
+        <button class='tab-btn' onclick="openTab(event, 'wifi-tab')" data-cn='WiFi设置' data-en='WiFi'>WiFi设置</button>
+        <button class='tab-btn' onclick="openTab(event, 'passthrough-tab')" data-cn='透传设置' data-en='Bridge'>透传设置</button>
+        <button class='tab-btn' onclick="openTab(event, 'debug-tab')" data-cn='调试控制台' data-en='Debug'>调试控制台</button>
+    </div>
+
+    <!-- Status Tab -->
+    <div id='status-tab' class='tab-content active'>
+        <div class='section'>
+            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
+                <h2 style='margin: 0;' data-cn='运行状态' data-en='Engine Status'>运行状态</h2>
+                <button onclick='location.reload()' class='filter-btn' data-cn='刷新' data-en='Refresh'>刷新</button>
+            </div>
+            <div class='status %s'>%s</div>
+        </div>
+        <div class='section'>
+            <h2 data-cn='网络详情' data-en='Network Details'>网络详情</h2>
+            <div class='info-grid'>
+                <div class='info-card'><div class='info-card-label' data-cn='STA状态' data-en='STA Status'>STA状态</div><div class='info-card-value'>%s</div></div>
+                <div class='info-card'><div class='info-card-label' data-cn='STA IP地址' data-en='STA IP'>STA IP地址</div><div class='info-card-value'>%s</div></div>
+                <div class='info-card'><div class='info-card-label' data-cn='网关' data-en='Gateway'>网关</div><div class='info-card-value'>%s</div></div>
+                <div class='info-card'><div class='info-card-label' data-cn='子网掩码' data-en='Netmask'>子网掩码</div><div class='info-card-value'>%s</div></div>
+            </div>
+        </div>
+        <div class='section'>
+            <form action='/save' method='POST'><button type='submit' class='btn btn-secondary' data-cn='保存当前配置' data-en='Save Configuration'>保存当前配置</button></form>
+        </div>
+    </div>
+
+    <!-- WiFi Tab -->
+    <div id='wifi-tab' class='tab-content'>
+        <div class='section'>
+            <h2 data-cn='WiFi配置' data-en='WiFi Configuration'>WiFi配置</h2>
+            <form action='/wifi' method='POST'>
+                <div class='form-group'><label data-cn='WiFi名称' data-en='WiFi SSID'>WiFi名称</label><input type='text' name='ssid' value='%s' placeholder='SSID' id='ssid-input'></div>
+                <div class='form-group'><label data-cn='WiFi密码' data-en='WiFi Password'>WiFi密码</label><input type='password' name='password' value='%s' placeholder='Password'></div>
+                <div class='form-group'>
+                    <label><input type='checkbox' name='enable_ap' %s> <span data-cn='开启热点模式' data-en='Enable AP Mode'>开启热点模式</span> <small style='color: #999;'>(192.168.4.1)</small></label>
+                    <label><input type='checkbox' name='enable_sta' %s> <span data-cn='连接外部WiFi' data-en='Enable STA Mode'>连接外部WiFi</span></label>
+                </div>
+                <button type='submit' class='btn btn-primary' data-cn='应用并保存WiFi设置' data-en='Apply & Save WiFi Settings'>应用并保存WiFi设置</button>
+            </form>
+        </div>
+        <div class='section'>
+            <h2 data-cn='可用WiFi热点' data-en='WiFi Scan'>可用WiFi热点</h2>
+            <form action='/scan' method='POST'>
+                <button type='submit' class='btn btn-secondary' data-cn='扫描WiFi' data-en='Scan WiFi'>扫描WiFi</button>
+            </form>
+            %s
+        </div>
+    </div>
+
+    <!-- Passthrough Tab -->
+    <div id='passthrough-tab' class='tab-content'>
+        <div class='section'>
+            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
+                <h2 style='margin: 0;' data-cn='透传运行状态' data-en='Passthrough Status'>透传运行状态</h2>
+                <button onclick='location.reload()' class='filter-btn' data-cn='刷新' data-en='Refresh'>刷新</button>
+            </div>
+            <div class='status %s' style='margin-bottom: 10px;'>%s</div>
+            
+            <div class='info-grid' style='margin-bottom: 20px;'>
+                <div class='info-card'>
+                    <div class='info-card-label' data-cn='当前状态' data-en='Status'>当前状态</div>
+                    <div class='info-card-value' id='bridge-status-text'>%s</div>
+                </div>
+                <div class='info-card'>
+                    <div class='info-card-label' data-cn='波特率' data-en='Baudrate'>波特率</div>
+                    <div class='info-card-value'>%d bps</div>
+                </div>
+            </div>
+            
+            <h2 data-cn='串口波特率设置' data-en='UART Baudrate Settings'>串口波特率设置</h2>
+            <form action='/uart' method='POST'>
+                <div class='form-group'>
+                    <div class='row'>
+                        <select name='baud' id='baud-select' style='flex: 2; padding: 10px; border: 1px solid #ddd; border-radius: 8px;'>
+                            <option value='9600'>9600</option>
+                            <option value='19200'>19200</option>
+                            <option value='38400'>38400</option>
+                            <option value='57600'>57600</option>
+                            <option value='115200'>115200</option>
+                            <option value='230400'>230400</option>
+                            <option value='460800'>460800</option>
+                            <option value='921600'>921600</option>
+                        </select>
+                        <button type='submit' class='btn btn-primary' style='flex: 1; margin: 0;' data-cn='设置' data-en='Set'>设置</button>
+                    </div>
+                </div>
+            </form>
+            
+            <h2 data-cn='网络透传参数' data-en='Passthrough Settings'>网络透传参数</h2>
+            <form action='/passthrough' method='POST'>
+                <div class='form-group'>
+                    <label data-cn='工作模式:' data-en='Work Mode:'>工作模式:</label>
+                    <div class='radio-group'>
+                        <label><input type='radio' name='mode' value='TCP_S' %s> TCP Server</label>
+                        <label><input type='radio' name='mode' value='TCP_C' %s> TCP Client</label>
+                        <label><input type='radio' name='mode' value='UDP' %s> UDP Mode</label>
+                    </div>
+                </div>
+                <div class='form-group'>
+                    <label data-cn='远程目标地址' data-en='Remote Target'>远程目标地址</label>
+                    <div class='row'>
+                        <div class='form-group' style='flex: 2'><input type='text' name='remote_ip' value='%s' placeholder='IP, e.g. 192.168.1.100'></div>
+                        <div class='form-group' style='flex: 1'><input type='number' name='remote_port' value='%d' min='1' max='65535' placeholder='Port'></div>
+                    </div>
+                </div>
+                <div class='form-group'>
+                    <label data-cn='本地监听端口' data-en='Local Port'>本地监听端口</label>
+                    <input type='number' name='local_port' value='%d' min='1' max='65535' placeholder='e.g. 8888'>
+                </div>
+                <button type='submit' class='btn btn-primary' data-cn='更新参数' data-en='Update Parameters'>更新参数</button>
+            </form>
+        </div>
+        <div class='section'>
+            <h2 data-cn='引擎控制' data-en='Engine Control'>引擎控制</h2>
+            <div class='row'>
+                <form action='/passthrough/start' method='POST' style='flex:1'><button type='submit' class='btn btn-primary' data-cn='启动' data-en='START'>启动</button></form>
+                <form action='/passthrough/stop' method='POST' style='flex:1'><button type='submit' class='btn btn-secondary' data-cn='停止' data-en='STOP'>停止</button></form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debug Tab -->
+    <div id='debug-tab' class='tab-content'>
+        <div class='section'>
+            <h2 data-cn='实时调试控制台' data-en='Debug Console'>实时调试控制台</h2>
+            <div class='console-container'>
+                <div class='console-header'>
+                    <div>
+                        <button id='btn-filter-ser' class='filter-btn active' onclick='toggleFilter(0)' data-cn='串口数据' data-en='Serial'>串口数据</button>
+                        <button id='btn-filter-net' class='filter-btn active' onclick='toggleFilter(1)' data-cn='网络数据' data-en='Network'>网络数据</button>
+                    </div>
+                    <button onclick='clearConsole()' class='filter-btn' data-cn='清屏' data-en='Clear'>清屏</button>
+                </div>
+                <div id='console' class='console'></div>
+                <div class='console-input-area'>
+                    <div class='console-input-group'>
+                        <select id='send-target' style='width: 80px; padding: 7px; border-radius: 4px; border: 1px solid #ddd;'>
+                            <option value='0' data-cn='串口' data-en='Serial'>串口</option>
+                            <option value='1' data-cn='网络' data-en='Network'>网络</option>
+                        </select>
+                        <input type='text' id='debug-input' class='console-input' placeholder='Send data...'>
+                        <button onclick='sendDataFromUI()' class='btn btn-primary' style='width: 70px; margin: 0; padding: 8px;' data-cn='发送' data-en='Send'>发送</button>
+                    </div>
+                    <div class='console-input-group'>
+                        <label style='font-size: 12px; color: #666' data-cn='定时发送' data-en='Timer (ms)'>定时发送</label>
+                        <input type='number' id='timer-ms' style='width: 70px; padding: 5px; border: 1px solid #ddd; border-radius: 4px;' placeholder='Off' min='100'>
+                        <button id='timer-btn' onclick='toggleTimer()' class='btn btn-secondary' style='width: 70px; margin: 0; padding: 5px; font-size: 12px;' data-cn='开启' data-en='Start'>开启</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+<footer>ESP32-S2 USB WiFi Bridge v1.3</footer>
+
+<script>
+var ws;
+var consoleElement = document.getElementById('console');
+var showSer = true, showNet = true;
+var sendTimer = null;
+var currentLang = localStorage.getItem('lang') || 'cn';
+var currentBaud = %d;
+
+function toggleLang() {
+    currentLang = currentLang === 'cn' ? 'en' : 'cn';
+    localStorage.setItem('lang', currentLang);
+    updateLang();
+}
+
+function updateLang() {
+    var elements = document.querySelectorAll('[data-cn]');
+    elements.forEach(function(el) {
+        el.textContent = el.getAttribute('data-' + currentLang);
+    });
+    
+    // Update placeholders
+    var placeholders = {
+        'ssid-input': { cn: '请输入WiFi名称', en: 'WiFi SSID' },
+        'debug-input': { cn: '输入要发送的数据...', en: 'Send data...' },
+        'timer-ms': { cn: '间隔', en: 'Off' }
+    };
+    for (var id in placeholders) {
+        var el = document.getElementById(id);
+        if (el) el.placeholder = placeholders[id][currentLang];
+    }
+    
+    document.getElementById('lang-btn').textContent = currentLang === 'cn' ? 'English' : '中文';
+    
+    // Update timer button text
+    var timerBtn = document.getElementById('timer-btn');
+    if (timerBtn) {
+        if (sendTimer) {
+            timerBtn.textContent = currentLang === 'cn' ? '停止' : 'Stop';
+        } else {
+            timerBtn.textContent = currentLang === 'cn' ? '开启' : 'Start';
+        }
+    }
+    
+    // Translate dynamic status text if possible
+     var statusEls = document.querySelectorAll('.status, .info-card-value');
+     statusEls.forEach(function(el) {
+         var txt = el.textContent.trim();
+         var translations = [
+              { key: 'Stopped', cn: '已停止', en: 'Stopped' },
+              { key: 'Running', cn: '运行中', en: 'Running' },
+              { key: 'Disabled', cn: '未启用', en: 'Disabled' },
+              { key: 'Connecting', cn: '正在连接...', en: 'Connecting' },
+              { key: 'Disconnected', cn: '已断开', en: 'Disconnected' },
+              { key: 'Connected', cn: '已连接', en: 'Connected' },
+              { key: 'TCP Server: Listening on', cn: 'TCP服务端: 正在监听端口', en: 'TCP Server: Listening on' },
+              { key: 'TCP Server: Connected to', cn: 'TCP服务端: 已连接到', en: 'TCP Server: Connected to' },
+              { key: 'TCP Client: Connecting to', cn: 'TCP客户端: 正在连接', en: 'TCP Client: Connecting to' },
+              { key: 'TCP Client: Connected to', cn: 'TCP客户端: 已连接到', en: 'TCP Client: Connected to' },
+              { key: 'TCP Client: Disconnected', cn: 'TCP客户端: 已断开', en: 'TCP Client: Disconnected' },
+              { key: 'UDP: Local', cn: 'UDP模式: 本地', en: 'UDP: Local' }
+          ];
+         
+         for (var i = 0; i < translations.length; i++) {
+             var t = translations[i];
+             // Check if current text contains the base key or either translation
+             var found = false;
+             if (txt.indexOf(t.key) !== -1) {
+                 el.textContent = txt.replace(t.key, t[currentLang]);
+                 found = true;
+             } else if (txt.indexOf(t.cn) !== -1) {
+                 el.textContent = txt.replace(t.cn, t[currentLang]);
+                 found = true;
+             } else if (txt.indexOf(t.en) !== -1) {
+                 el.textContent = txt.replace(t.en, t[currentLang]);
+                 found = true;
+             }
+             if (found) break;
+         }
+     });
+ }
+
+function openTab(evt, tabName) {
+    var i, tabcontent, tablinks;
+    tabcontent = document.getElementsByClassName("tab-content");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+        tabcontent[i].classList.remove("active");
+    }
+    tablinks = document.getElementsByClassName("tab-btn");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove("active");
+    }
+    document.getElementById(tabName).style.display = "block";
+    document.getElementById(tabName).classList.add("active");
+    evt.currentTarget.classList.add("active");
+    localStorage.setItem('activeTab', tabName);
+}
+
+function initWebSocket() {
+    ws = new WebSocket('ws://' + window.location.host + '/ws');
+    ws.binaryType = 'arraybuffer';
+    ws.onopen = function() { appendLog(2, currentLang === 'cn' ? 'WebSocket 已连接' : 'WebSocket Connected'); };
+    ws.onclose = function() { 
+        appendLog(2, currentLang === 'cn' ? 'WebSocket 已断开，正在尝试重连...' : 'WebSocket Disconnected, reconnecting...'); 
+        setTimeout(initWebSocket, 2000);
+    };
+    ws.onmessage = function(evt) {
+        var data = new Uint8Array(evt.data);
+        var type = data[0];
+        if ((type === 0 && !showSer) || (type === 1 && !showNet)) return;
+        var payload = new TextDecoder().decode(data.slice(1));
+        appendLog(type, payload);
+    };
+}
+
+function appendLog(type, text) {
+    var span = document.createElement('span');
+    var className = 'log-sys';
+    var prefix = '[SYS] ';
+    if (type === 0) { className = 'log-serial'; prefix = '[SER] '; }
+    else if (type === 1) { className = 'log-net'; prefix = '[NET] '; }
+    
+    span.className = className;
+    span.textContent = prefix + text + (text.endsWith('\n') ? '' : '\n');
+    consoleElement.appendChild(span);
+    consoleElement.scrollTop = consoleElement.scrollHeight;
+    
+    if (consoleElement.childNodes.length > 500) {
+        consoleElement.removeChild(consoleElement.firstChild);
+    }
+}
+
+function toggleFilter(type) {
+    if (type === 0) {
+        showSer = !showSer;
+        document.getElementById('btn-filter-ser').classList.toggle('active');
+    } else {
+        showNet = !showNet;
+        document.getElementById('btn-filter-net').classList.toggle('active');
+    }
+}
+
+function sendData(type, val) {
+    if (!val || !ws || ws.readyState !== WebSocket.OPEN) return;
+    var encoder = new TextEncoder();
+    var payload = encoder.encode(val);
+    var msg = new Uint8Array(payload.length + 1);
+    msg[0] = type;
+    msg.set(payload, 1);
+    ws.send(msg);
+}
+
+function sendDataFromUI() {
+    var type = parseInt(document.getElementById('send-target').value);
+    var input = document.getElementById('debug-input');
+    sendData(type, input.value);
+    if (!sendTimer) input.value = '';
+}
+
+function toggleTimer() {
+    if (sendTimer) {
+        clearInterval(sendTimer);
+        sendTimer = null;
+        var btn = document.getElementById('timer-btn');
+        btn.textContent = currentLang === 'cn' ? '开启' : 'Start';
+        btn.className = 'btn btn-secondary';
+    } else {
+        var ms = parseInt(document.getElementById('timer-ms').value);
+        if (isNaN(ms) || ms < 100) {
+            alert(currentLang === 'cn' ? '请输入有效的间隔时间 (>=100ms)' : 'Please enter valid interval (>=100ms)');
+            return;
+        }
+        sendTimer = setInterval(sendDataFromUI, ms);
+        var btn = document.getElementById('timer-btn');
+        btn.textContent = currentLang === 'cn' ? '停止' : 'Stop';
+        btn.className = 'btn btn-primary';
+    }
+}
+
+function clearConsole() {
+    consoleElement.innerHTML = '';
+}
+
+document.getElementById('debug-input').onkeydown = function(e) { if(e.keyCode==13) sendDataFromUI(); };
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateLang();
+    var baudSelect = document.getElementById('baud-select');
+    if (baudSelect) baudSelect.value = currentBaud;
+    
+    var activeTab = localStorage.getItem('activeTab');
+    if (activeTab) {
+        var btn = document.querySelector("button[onclick*='" + activeTab + "']");
+        if (btn) btn.click();
+    }
+    initWebSocket();
+});
+</script>
+</body>
+</html>

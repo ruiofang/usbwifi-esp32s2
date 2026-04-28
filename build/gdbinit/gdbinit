@@ -1,2 +1,2 @@
-source /home/phi/123/usbwifi-esp32s2/build/gdbinit/symbols
-source /home/phi/123/usbwifi-esp32s2/build/gdbinit/connect
+source E:/usbwifi-esp32s2/build/gdbinit/symbols
+source E:/usbwifi-esp32s2/build/gdbinit/connect
