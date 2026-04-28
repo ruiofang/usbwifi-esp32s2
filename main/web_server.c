@@ -82,7 +82,6 @@ static esp_err_t ws_handler(httpd_req_t *req) {
 }
 
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
-extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
 
 static bool extract_form_value(const char *body, const char *key, char *value_out, size_t value_out_size) {
     char pattern[32];
@@ -140,16 +139,7 @@ static esp_err_t http_index_handler(httpd_req_t *req) {
         wifi_list[0] = '\0';
     }
     
-    uint32_t html_len = index_html_end - index_html_start;
-    char *html_template = malloc(html_len + 1);
-    if (html_template == NULL) {
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Memory allocation failed");
-        return ESP_FAIL;
-    }
-    memcpy(html_template, index_html_start, html_len);
-    html_template[html_len] = '\0';
-
-    int len = snprintf(response, sizeof(response), html_template,
+    int len = snprintf(response, sizeof(response), (const char *)index_html_start,
                        status_class, status_text,
                        sta_status_text, sta_ip_text, sta_gw_text, sta_mask_text,
                        config.sta_ssid, config.sta_password,
@@ -164,8 +154,6 @@ static esp_err_t http_index_handler(httpd_req_t *req) {
                        strcmp(config.passthrough_mode, "UDP") == 0 ? "checked" : "",
                        config.remote_ip, config.remote_port, config.local_port,
                        config.uart_baud);
-
-    free(html_template);
 
     if (len < 0 || len >= sizeof(response)) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to render page");

@@ -84,7 +84,7 @@ footer { text-align: center; color: rgba(255,255,255,0.8); font-size: 11px; marg
         <button class='tab-btn active' onclick="openTab(event, 'status-tab')" data-cn='运行状态' data-en='Status'>运行状态</button>
         <button class='tab-btn' onclick="openTab(event, 'wifi-tab')" data-cn='WiFi设置' data-en='WiFi'>WiFi设置</button>
         <button class='tab-btn' onclick="openTab(event, 'passthrough-tab')" data-cn='透传设置' data-en='Bridge'>透传设置</button>
-        <button class='tab-btn' onclick="openTab(event, 'debug-tab')" data-cn='调试控制台' data-en='Debug'>调试控制台</button>
+        <button class='tab-btn' onclick="openTab(event, 'debug-tab')" data-cn='控制台' data-en='Debug'>控制台</button>
     </div>
 
     <!-- Status Tab -->
@@ -215,17 +215,29 @@ footer { text-align: center; color: rgba(255,255,255,0.8); font-size: 11px; marg
                         <button id='btn-filter-ser' class='filter-btn active' onclick='toggleFilter(0)' data-cn='串口数据' data-en='Serial'>串口数据</button>
                         <button id='btn-filter-net' class='filter-btn active' onclick='toggleFilter(1)' data-cn='网络数据' data-en='Network'>网络数据</button>
                     </div>
-                    <button onclick='clearConsole()' class='filter-btn' data-cn='清屏' data-en='Clear'>清屏</button>
+                    <div style='display:flex; gap:6px; align-items:center;'>
+                        <span style='font-size:11px; color:#888;' data-cn='显示:' data-en='RX:'>显示:</span>
+                        <select id='encoding-select' onchange='changeEncoding(this.value)' style='padding: 4px 6px; border-radius: 4px; border: 1px solid #ddd; font-size: 11px; cursor:pointer;'>
+                            <option value='utf-8'>UTF-8</option>
+                            <option value='gbk'>GBK</option>
+                            <option value='hex'>HEX</option>
+                        </select>
+                        <button onclick='clearConsole()' class='filter-btn' data-cn='清屏' data-en='Clear'>清屏</button>
+                    </div>
                 </div>
                 <div id='console' class='console'></div>
                 <div class='console-input-area'>
                     <div class='console-input-group'>
-                        <select id='send-target' style='width: 80px; padding: 7px; border-radius: 4px; border: 1px solid #ddd;'>
+                        <select id='send-target' style='width: 68px; padding: 7px; border-radius: 4px; border: 1px solid #ddd;'>
                             <option value='0' data-cn='串口' data-en='Serial'>串口</option>
                             <option value='1' data-cn='网络' data-en='Network'>网络</option>
                         </select>
+                        <select id='send-encoding-select' onchange='changeSendEncoding(this.value)' style='width: 62px; padding: 7px; border-radius: 4px; border: 1px solid #ddd; font-size: 12px; cursor:pointer;'>
+                            <option value='utf-8'>UTF-8</option>
+                            <option value='hex'>HEX</option>
+                        </select>
                         <input type='text' id='debug-input' class='console-input' placeholder='Send data...'>
-                        <button onclick='sendDataFromUI()' class='btn btn-primary' style='width: 70px; margin: 0; padding: 8px;' data-cn='发送' data-en='Send'>发送</button>
+                        <button onclick='sendDataFromUI()' class='btn btn-primary' style='width: 60px; margin: 0; padding: 8px;' data-cn='发送' data-en='Send'>发送</button>
                     </div>
                     <div class='console-input-group'>
                         <label style='font-size: 12px; color: #666' data-cn='定时发送' data-en='Timer (ms)'>定时发送</label>
@@ -246,6 +258,8 @@ var consoleElement = document.getElementById('console');
 var showSer = true, showNet = true;
 var sendTimer = null;
 var currentLang = localStorage.getItem('lang') || 'cn';
+var currentEncoding = localStorage.getItem('encoding') || 'utf-8';
+var sendEncoding = localStorage.getItem('sendEncoding') || 'utf-8';
 var currentBaud = %d;
 
 function toggleLang() {
@@ -263,13 +277,13 @@ function updateLang() {
     // Update placeholders
     var placeholders = {
         'ssid-input': { cn: '请输入WiFi名称', en: 'WiFi SSID' },
-        'debug-input': { cn: '输入要发送的数据...', en: 'Send data...' },
         'timer-ms': { cn: '间隔', en: 'Off' }
     };
     for (var id in placeholders) {
         var el = document.getElementById(id);
         if (el) el.placeholder = placeholders[id][currentLang];
     }
+    updateDebugInputPlaceholder();
     
     document.getElementById('lang-btn').textContent = currentLang === 'cn' ? 'English' : '中文';
     
@@ -350,7 +364,7 @@ function initWebSocket() {
         var data = new Uint8Array(evt.data);
         var type = data[0];
         if ((type === 0 && !showSer) || (type === 1 && !showNet)) return;
-        var payload = new TextDecoder().decode(data.slice(1));
+        var payload = decodePayload(data.slice(1));
         appendLog(type, payload);
     };
 }
@@ -382,21 +396,84 @@ function toggleFilter(type) {
     }
 }
 
+function decodePayload(bytes) {
+    if (currentEncoding === 'hex') {
+        var hex = '';
+        for (var i = 0; i < bytes.length; i++) {
+            if (i > 0) hex += ' ';
+            hex += ('0' + bytes[i].toString(16).toUpperCase()).slice(-2);
+        }
+        return hex;
+    }
+    return new TextDecoder(currentEncoding).decode(bytes);
+}
+
+function changeEncoding(enc) {
+    currentEncoding = enc;
+    localStorage.setItem('encoding', enc);
+}
+
+function changeSendEncoding(enc) {
+    sendEncoding = enc;
+    localStorage.setItem('sendEncoding', enc);
+    updateDebugInputPlaceholder();
+}
+
+function updateDebugInputPlaceholder() {
+    var input = document.getElementById('debug-input');
+    if (!input) return;
+    if (sendEncoding === 'hex') {
+        input.placeholder = currentLang === 'cn' ? '十六进制 (如: FF0A1B 或 FF 0A 1B)' : 'Hex (e.g.: FF0A1B or FF 0A 1B)';
+    } else {
+        input.placeholder = currentLang === 'cn' ? '输入要发送的数据...' : 'Send data...';
+    }
+}
+
 function sendData(type, val) {
     if (!val || !ws || ws.readyState !== WebSocket.OPEN) return;
-    var encoder = new TextEncoder();
-    var payload = encoder.encode(val);
-    var msg = new Uint8Array(payload.length + 1);
-    msg[0] = type;
-    msg.set(payload, 1);
+    var msg;
+    if (sendEncoding === 'hex') {
+        // Strip all whitespace, parse every 2 hex chars as one byte
+        var hexStr = val.replace(/\s+/g, '');
+        if (hexStr.length === 0 || hexStr.length %% 2 !== 0) return;
+        var bytes = [];
+        for (var i = 0; i < hexStr.length; i += 2) {
+            bytes.push(parseInt(hexStr.substr(i, 2), 16));
+        }
+        if (bytes.length === 0) return;
+        msg = new Uint8Array(bytes.length + 1);
+        msg[0] = type;
+        for (var j = 0; j < bytes.length; j++) msg[j + 1] = bytes[j];
+    } else {
+        var encoder = new TextEncoder();
+        var payload = encoder.encode(val);
+        msg = new Uint8Array(payload.length + 1);
+        msg[0] = type;
+        msg.set(payload, 1);
+    }
     ws.send(msg);
 }
 
 function sendDataFromUI() {
     var type = parseInt(document.getElementById('send-target').value);
     var input = document.getElementById('debug-input');
-    sendData(type, input.value);
-    if (!sendTimer) input.value = '';
+    var val = input.value;
+    if (!val) return;
+
+    // Validate HEX format before sending
+    if (sendEncoding === 'hex') {
+        var hexStr = val.replace(/\s+/g, '');
+        if (hexStr.length === 0 || hexStr.length %% 2 !== 0 || !/^[0-9a-fA-F]+$/.test(hexStr)) {
+            input.style.borderColor = '#e74c3c';
+            setTimeout(function() { input.style.borderColor = ''; }, 800);
+            return;
+        }
+    }
+
+    input.style.borderColor = '';
+    sendData(type, val);
+    // Persist last sent value across reloads
+    localStorage.setItem('lastSendValue', val);
 }
 
 function toggleTimer() {
@@ -434,6 +511,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (activeTab) {
         var btn = document.querySelector("button[onclick*='" + activeTab + "']");
         if (btn) btn.click();
+    }
+    var encSel = document.getElementById('encoding-select');
+    if (encSel) encSel.value = currentEncoding;
+    var sendEncSel = document.getElementById('send-encoding-select');
+    if (sendEncSel) sendEncSel.value = sendEncoding;
+    updateDebugInputPlaceholder();
+    // Restore last sent value
+    var lastVal = localStorage.getItem('lastSendValue');
+    if (lastVal) {
+        var debugInput = document.getElementById('debug-input');
+        if (debugInput) debugInput.value = lastVal;
     }
     initWebSocket();
 });
