@@ -5,6 +5,7 @@
 #include "esp_system.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "esp_netif.h"
 #include "app_config.h"
 #include "wifi_manager.h"
 #include "led_ctrl.h"
@@ -20,8 +21,8 @@ static int null_vprintf(const char *fmt, va_list args) {
 }
 
 void app_main(void) {
-    // Enable logging for troubleshooting USB issues
-    // esp_log_set_vprintf(null_vprintf);
+    // Suppress all log output on USB-CDC; uncomment to re-enable for debugging
+    esp_log_set_vprintf(null_vprintf);
 
     ESP_LOGI(TAG, "Starting ESP32-S2 USB WiFi Project");
     ESP_LOGI(TAG, "Wait for USB stabilization...");
@@ -56,7 +57,16 @@ void app_main(void) {
     // Start HTTP server
     ESP_ERROR_CHECK(web_server_start());
     
+    // Auto-start passthrough
+    ESP_LOGI(TAG, "Auto-starting passthrough...");
+    passthrough_start();
+    
     ESP_LOGI(TAG, "System initialized");
+    
+    esp_netif_ip_info_t ip_info;
+    if (esp_netif_get_ip_info(esp_netif_get_handle_from_ifkey("WIFI_STA_DEF"), &ip_info) == ESP_OK) {
+        ESP_LOGI(TAG, "STA IP: " IPSTR, IP2STR(&ip_info.ip));
+    }
     
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(5000));

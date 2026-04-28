@@ -1,6 +1,7 @@
 #include "web_server.h"
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
@@ -66,8 +67,10 @@ static esp_err_t ws_handler(httpd_req_t *req) {
             size_t data_len = ws_pkt.len - 1;
 
             if (type == WS_TYPE_SERIAL) {
-                // Send to Serial
+                // Send to Serial (USB CDC)
+                // write() buffers in ROM s_usb_tx_buf; fsync() flushes it to USB FIFO.
                 write(STDOUT_FILENO, data, data_len);
+                fsync(STDOUT_FILENO);
             } else if (type == WS_TYPE_NETWORK) {
                 // Send to Network
                 passthrough_send_to_network(data, data_len);
